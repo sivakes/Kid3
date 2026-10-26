@@ -6,20 +6,50 @@ import java.io.File
 class EngineLauncher(private val port: Int = 8765) {
     private val client = EngineClient(port)
     private var process: Process? = null
+    private val isWindows = System.getProperty("os.name").lowercase().contains("win")
 
     fun start() {
-        // If you already started the engine manually, just reuse it.
+        // If the engine is already running (for example you started it manually), reuse it.
         if (client.isHealthy()) return
 
+        val started = bundledEngine()?.let { launchBundled(it) } ?: launchDev()
+        process = started
+
+        repeat(120) {
+            if (client.isHealthy()) return
+            if (!started.isAlive) error("The engine stopped unexpectedly. Please reinstall ChromaCut.")
+            Thread.sleep(500)
+        }
+        error("The engine did not start within 60 seconds.")
+    }
+
+    /** The packaged engine that ships inside the installed app, or null in development. */
+    private fun bundledEngine(): File? {
+        val resources = System.getProperty("compose.application.resources.dir") ?: return null
+        val name = if (isWindows) "chromacut-engine.exe" else "chromacut-engine"
+        val exe = File(resources, "chromacut-engine/$name")
+        return exe.takeIf { it.exists() }
+    }
+
+    private fun launchBundled(exe: File): Process {
+        exe.setExecutable(true)
+        return ProcessBuilder(exe.absolutePath, port.toString())
+            .directory(exe.parentFile)
+            .redirectErrorStream(true)
+            .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+            .start()
+    }
+
+    /** Development mode: run the engine from the engine/ folder using its virtual environment. */
+    private fun launchDev(): Process {
         val engineDir = File(System.getenv("CHROMACUT_ENGINE_DIR") ?: "../engine")
             .absoluteFile.normalize()
-        val isWindows = System.getProperty("os.name").lowercase().contains("win")
         val venvPython = if (isWindows) File(engineDir, ".venv/Scripts/python.exe")
         else File(engineDir, ".venv/bin/python")
         val python = if (venvPython.exists()) venvPython.absolutePath
         else if (isWindows) "python" else "python3"
 
-        val started = ProcessBuilder(
+        return ProcessBuilder(
             python, "-m", "uvicorn", "chromacut_engine.main:app",
             "--host", "127.0.0.1", "--port", port.toString(),
         )
@@ -27,14 +57,6 @@ class EngineLauncher(private val port: Int = 8765) {
             .redirectErrorStream(true)
             .redirectOutput(ProcessBuilder.Redirect.INHERIT)
             .start()
-        process = started
-
-        repeat(60) {
-            if (client.isHealthy()) return
-            if (!started.isAlive) error("The Python engine stopped unexpectedly. Check the console output.")
-            Thread.sleep(500)
-        }
-        error("The Python engine did not start within 30 seconds.")
     }
 
     fun stop() {
