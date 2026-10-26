@@ -1,0 +1,19 @@
+# Web API
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
+
+# Image processing
+numpy>=1.26
+opencv-python>=4.9
+Pillow>=10.2
+
+# RAW photos
+rawpy>=0.19
+
+# Color science and LUTs
+colour-science>=0.4.4
+opencolorio>=2.3
+
+# Video decode/encode
+av>=12.0
