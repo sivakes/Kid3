@@ -31,6 +31,13 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "ChromaCut"
             packageVersion = "1.0.0"
+            description = "Photo editing and color grading"
+
+            // The packaged Python engine is copied into app/resources/<os>/ by the build
+            appResourcesRootDir.set(project.layout.projectDirectory.dir("resources"))
+
+            windows { menuGroup = "ChromaCut"; shortcut = true }
+            linux { shortcut = true }
         }
     }
 }
