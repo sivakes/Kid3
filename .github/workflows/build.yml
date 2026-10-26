@@ -1,0 +1,81 @@
+name: Build installers
+
+on:
+  push:
+    tags: ["v*"]        # builds when you push a tag like v1.0.0
+  workflow_dispatch:     # lets you run it manually from the Actions tab
+
+permissions:
+  contents: write        # needed to publish a GitHub Release
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            resdir: windows
+          - os: macos-latest
+            resdir: macos
+          - os: ubuntu-latest
+            resdir: linux
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: "8.5"
+
+      - name: Package the Python engine
+        working-directory: engine
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-build.txt
+          pyinstaller --noconfirm --onedir --name chromacut-engine \
+            --collect-submodules uvicorn \
+            --collect-submodules fastapi \
+            --collect-submodules pydantic \
+            run_engine.py
+
+      - name: Bundle the engine into the app
+        run: |
+          mkdir -p app/resources/${{ matrix.resdir }}
+          cp -R engine/dist/chromacut-engine app/resources/${{ matrix.resdir }}/
+
+      - name: Build the installer
+        working-directory: app
+        run: gradle packageDistributionForCurrentOS
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChromaCut-${{ matrix.resdir }}
+          path: |
+            app/build/compose/binaries/main/msi/*.msi
+            app/build/compose/binaries/main/dmg/*.dmg
+            app/build/compose/binaries/main/deb/*.deb
+          if-no-files-found: error
+
+      - name: Publish to GitHub Releases
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            app/build/compose/binaries/main/msi/*.msi
+            app/build/compose/binaries/main/dmg/*.dmg
+            app/build/compose/binaries/main/deb/*.deb
