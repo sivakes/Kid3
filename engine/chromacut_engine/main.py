@@ -7,9 +7,13 @@ import threading
 from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel, Field
 
-from . import __version__, image_ops
+from . import __version__, color, image_ops
 
 app = FastAPI(title="ChromaCut Engine", version=__version__)
+
+
+def _zeros() -> list[float]:
+    return [0.0, 0.0, 0.0]
 
 
 class Adjustments(BaseModel):
@@ -20,11 +24,20 @@ class Adjustments(BaseModel):
     saturation: float = Field(0.0, ge=-1, le=1)
 
 
+class Grade(BaseModel):
+    lift: list[float] = Field(default_factory=_zeros, min_length=3, max_length=3)
+    gamma: list[float] = Field(default_factory=_zeros, min_length=3, max_length=3)
+    gain: list[float] = Field(default_factory=_zeros, min_length=3, max_length=3)
+    lut_path: str | None = None
+    lut_intensity: float = Field(1.0, ge=0, le=1)
+
+
 class PreviewRequest(BaseModel):
     path: str
     max_size: int = Field(1600, ge=64, le=8192, description="Longest side in pixels")
     quality: int = Field(90, ge=1, le=100)
     adjustments: Adjustments = Adjustments()
+    grade: Grade = Grade()
 
 
 @app.get("/health")
@@ -35,7 +48,7 @@ def health() -> dict:
 
 @app.post("/image/preview")
 def image_preview(req: PreviewRequest) -> Response:
-    """Load an image, apply the adjustments, and return a JPEG preview."""
+    """Load an image, apply adjustments and grading, return a JPEG preview."""
     if not os.path.isfile(req.path):
         raise HTTPException(status_code=404, detail=f"File not found: {req.path}")
 
@@ -53,6 +66,19 @@ def image_preview(req: PreviewRequest) -> Response:
         contrast_amount=a.contrast,
         saturation_amount=a.saturation,
     )
+
+    g = req.grade
+    result = color.lift_gamma_gain(result, g.lift, g.gamma, g.gain)
+
+    if g.lut_path:
+        if not os.path.isfile(g.lut_path):
+            raise HTTPException(status_code=404, detail=f"LUT not found: {g.lut_path}")
+        try:
+            lut = color.load_cube(g.lut_path)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Bad LUT file: {exc}")
+        result = color.apply_lut(result, lut, g.lut_intensity)
+
     return Response(content=image_ops.to_jpeg_bytes(result, req.quality), media_type="image/jpeg")
 
 
