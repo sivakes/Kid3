@@ -1,0 +1,14 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Kotlin / Gradle
+.gradle/
+build/
+.kotlin/
+
+# IDE and OS
+.idea/
+.vscode/
+.DS_Store
