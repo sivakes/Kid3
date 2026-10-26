@@ -12,3 +12,8 @@ build/
 .idea/
 .vscode/
 .DS_Store
+# Packaging output
+engine/build/
+engine/dist/
+engine/*.spec
+app/resources/
