@@ -67,7 +67,18 @@ The Kotlin app starts the Python engine as a background process and sends it edi
 | Image processing | NumPy, OpenCV, Pillow |
 | RAW decoding | rawpy (LibRaw) |
 | Color science / LUTs | colour-science, PyOpenColorIO |
-| Video decode/encode | FFmpeg (via PyAV or ffmpeg-python) |
+| Video decode/encode | FFmpeg (via PyAV or ffmpeg-python) |## Download
+
+Go to the [Releases page](../../releases) and download the installer for your system:
+
+| System | File |
+|--------|------|
+| Windows | `ChromaCut-x.y.z.msi` |
+| macOS | `ChromaCut-x.y.z.dmg` |
+| Linux | `chromacut_x.y.z-1_amd64.deb` |
+
+No Python, Java, or other setup is needed. Everything is included.
+
 
 ## Getting Started
 
